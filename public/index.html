@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preencher Formulário no PDF</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+
+    #pdf-container {
+      width: 100%;
+      height: 600px;
+      border: 1px solid #000;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 16px;
+      margin-top: 5px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Preencher Formulário no PDF</h1>
+
+  <!-- Exibir PDF -->
+  <div id="pdf-container"></div>
+
+  <form id="pdf-form">
+    <div class="form-group">
+      <label for="nome">Nome:</label>
+      <input type="text" id="nome" name="nome" />
+    </div>
+    <div class="form-group">
+      <label for="referente">Referente:</label>
+      <input type="text" id="referente" name="referente" />
+    </div>
+    <div class="form-group">
+      <label for="importancia">Importância:</label>
+      <input type="text" id="importancia" name="importancia" />
+    </div>
+    <div class="form-group">
+      <label for="assinatura">Assinatura:</label>
+      <input type="text" id="assinatura" name="assinatura" />
+    </div>
+    <button type="submit">Gerar PDF</button>
+  </form>
+
+  <div id="download-section"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+  <script>
+    // URL do PDF original
+    const pdfUrl = '/Recibo.pdf';
+
+    // Função para renderizar o PDF no frontend
+    const renderPDF = async (url) => {
+      const pdf = await pdfjsLib.getDocument(url).promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1 });
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+
+      document.getElementById('pdf-container').appendChild(canvas);
+    };
+
+    // Carregar o PDF na página
+    window.onload = () => {
+      renderPDF(pdfUrl);
+    };
+
+    // Enviar dados preenchidos para o back-end
+    document.getElementById('pdf-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = {
+        nome: document.getElementById('nome').value,
+        referente: document.getElementById('referente').value,
+        importancia: document.getElementById('importancia').value,
+        assinatura: document.getElementById('assinatura').value
+      };
+
+      // Codificar os dados como uma string JSON
+      const encodedFormData = encodeURIComponent(JSON.stringify(formData));
+
+      try {
+        const response = await fetch('/edit-pdf', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Form-Data': encodedFormData  // Adicionar os dados no cabeçalho
+          }
+        });
+
+        const data = await response.json();
+        const modifiedBase64 = data.base64Pdf;
+        console.log(modifiedBase64);
+
+        // Agora, vamos alterar a tela para exibir o PDF modificado.
+        const pdfUrl = '/modified.pdf'; // URL para acessar o PDF modificado gerado
+
+        // Alterar a tela para exibir o PDF gerado
+        const iframe = document.createElement('iframe');
+        iframe.src = pdfUrl;
+        iframe.width = "100%";
+        iframe.height = "600px";
+
+        // Limpar a tela anterior e adicionar o iframe
+        const pdfContainer = document.getElementById('pdf-container');
+        pdfContainer.innerHTML = '';  // Limpar o conteúdo existente
+        pdfContainer.appendChild(iframe);  // Adicionar o iframe com o PDF modificado
+
+      } catch (error) {
+        console.error('Erro ao enviar dados para o back-end:', error);
+      }
+    });
+  </script>
+
+</body>
+</html>
